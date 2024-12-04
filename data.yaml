@@ -1,0 +1,13 @@
+train: datasets/train/images
+val: datasets/valid/images
+test: datasets/test/images
+
+nc: 28
+names: ['Female Age- 1', 'Female Age- 2', 'Female Age- 22', 'Female Age- 24', 'Female Age- 25', 'Female Age- 28', 'Female Age- 30', 'Female Age- 35', 'Female Age- 45', 'Female Age- 50', 'Female Age- 60', 'Female Age- 75', 'Female Age-3', 'Female Age-40', 'Male Age- 1', 'Male Age- 2', 'Male Age- 22', 'Male Age- 24', 'Male Age- 25', 'Male Age- 28', 'Male Age- 3', 'Male Age- 30', 'Male Age- 35', 'Male Age- 40', 'Male Age- 45', 'Male Age- 50', 'Male Age- 60', 'Male Age- 75']
+
+roboflow:
+  workspace: henk-bert-n4r2o
+  project: AgeGenderDetection
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/henk-bert-n4r2o/age-gender-detection-tg8pr/dataset/1
