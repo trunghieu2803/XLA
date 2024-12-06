@@ -1,8 +1,11 @@
 import os
 import tkinter as tk
 from tkinter import filedialog
+
+import numpy as np
 from PIL import Image, ImageTk
 import cv2
+from sympy.codegen import Print
 from ultralytics import YOLO
 import threading
 import time
@@ -10,11 +13,11 @@ import time
 
 class App:
     def __init__(self, root):
-        self.root = root
+        self.root = root  # Lưu tham chiếu đến cửa sổ chính.
         self.root.title("Image and Video Face Detection")
 
         # Đường dẫn mô hình YOLO
-        self.model_path = "D:/JetBrains/PyCharm/Source/AgeGenderDetection/runs/detect/train3/weights/best.pt"
+        self.model_path = "runs/detect/train3/weights/best.pt"
         self.model = YOLO(self.model_path)
 
         # Đường dẫn ảnh/video
@@ -61,18 +64,14 @@ class App:
         self.canvas_original.pack()
 
         # Khung hiển thị ảnh/video đã xử lý
-        self.frame_processed = tk.LabelFrame(self.root, text="Ảnh/Video Sau Xử Lý", width=640, height=480)
+        self.frame_processed = tk.LabelFrame(self.root, text="Ảnh/Video Sau Xử Lý", width=640, height=500)
         self.frame_processed.grid(row=1, column=1, padx=10, pady=10)
-        self.canvas_processed = tk.Canvas(self.frame_processed, width=640, height=480)
+        self.canvas_processed = tk.Canvas(self.frame_processed, width=640, height=500)
         self.canvas_processed.pack()
 
     def select_image(self):
         self.cancel_video()  # Hủy video nếu đang chạy
         self.img_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg;*.png;*.jpeg")])
-
-        # Xóa nội dung canvas gốc và canvas đã xử lý
-        self.canvas_original.delete("all")
-        self.canvas_processed.delete("all")
 
         if self.img_path:
             image = Image.open(self.img_path).resize((500, 500))
@@ -145,8 +144,8 @@ class App:
             self.cap.release()
 
     def select_video(self):
-        self.cancel_video()  # Hủy video nếu đang chạy
         self.video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4;*.avi;*.mov")])
+        self.cancel_video()  # Hủy video nếu đang chạy
         if self.video_path:
             self.cap = cv2.VideoCapture(self.video_path)
             if not self.cap.isOpened():
@@ -158,20 +157,47 @@ class App:
 
     def process_selected_video(self):
         frame_count = 0
+        canvas_width = 640  # Chiều rộng của canvas
+        canvas_height = 500  # Chiều cao của canvas
+
         while self.running and self.cap.isOpened():
             ret, frame = self.cap.read()
             if not ret:
                 break
+
+            # Thực hiện dự đoán và vẽ khung kết quả
             results = self.model.predict(frame)
             for r in results:
-                img_arr = r.plot()
+                frame = r.plot()  # Vẽ khung kết quả trực tiếp lên khung hình gốc
 
-            # Lưu khung hình mỗi giây
+            # Lấy kích thước gốc của khung hình
+            frame_height, frame_width, _ = frame.shape
+
+            # Tính toán tỷ lệ để scale vừa với canvas
+            scale_w = canvas_width / frame_width
+            scale_h = canvas_height / frame_height
+            scale = min(scale_w, scale_h)  # Đảm bảo không vượt qua canvas
+
+            # Tính kích thước mới sau khi scale
+            new_width = int(frame_width * scale)
+            new_height = int(frame_height * scale)
+
+            # Resize khung hình đã qua xử lý
+            resized_frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+            # Chèn khung hình vào giữa canvas
+            background = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
+            start_x = (canvas_width - new_width) // 2
+            start_y = (canvas_height - new_height) // 2
+            background[start_y:start_y + new_height, start_x:start_x + new_width] = resized_frame
+
+            # Lưu khung hình mỗi giây (sau khi xử lý)
             if frame_count % 15 == 0:  # Tương đương 0.5 giây ở tốc độ 30 fps
                 save_path = os.path.join(self.save_dir, f"frame_{frame_count}.jpg")
-                cv2.imwrite(save_path, img_arr)
+                cv2.imwrite(save_path, background)
 
-            img_rgb = cv2.cvtColor(img_arr, cv2.COLOR_BGR2RGB)
+            # Chuyển đổi sang định dạng RGB và hiển thị lên canvas
+            img_rgb = cv2.cvtColor(background, cv2.COLOR_BGR2RGB)
             img = ImageTk.PhotoImage(Image.fromarray(img_rgb))
             self.canvas_processed.create_image(0, 0, anchor=tk.NW, image=img)
             self.canvas_processed.image = img
@@ -188,7 +214,9 @@ class App:
         if self.cap is not None and self.cap.isOpened():
             self.cap.release()
         self.cap = None
-        self.canvas_processed.delete("all")  # Xóa nội dung canvas
+        if self.video_path:
+            self.canvas_original.delete("all")
+            self.canvas_processed.delete("all")  # Xóa nội dung canvas
 
     def on_closing(self):
         self.cancel_video()  # Hủy video nếu đang chạy

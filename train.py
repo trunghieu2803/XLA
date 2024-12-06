@@ -16,7 +16,7 @@ def main():
         imgsz=640,  # Image size
         device='cuda',  # Device to use for training (GPU)
         workers=4,  # Number of data loading workers
-        batch=64  # Batch size
+        batch=32  # Batch size
     )
 
 
